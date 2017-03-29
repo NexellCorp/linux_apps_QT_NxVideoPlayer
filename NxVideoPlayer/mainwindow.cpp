@@ -59,6 +59,7 @@ MainWindow::MainWindow(QWidget *parent)
 	, m_pNxPlayer   (NULL)
 //    , m_dspStatus   (DSP_FULL)
 	, m_DspMode     (DSP_MODE_DEFAULT)
+	, m_bFindVideoFile (false)
 	, m_bSeekReady  (false)
 	, m_bVoumeCtrlReady (false)
 	, m_bButtonHide (false)
@@ -115,6 +116,10 @@ MainWindow::MainWindow(QWidget *parent)
 				{
 					m_fileIndex = 0;
 					m_curFileListIdx = m_fileIndex;
+					m_bFindVideoFile = false;
+					delete m_pNxPlayer;
+					m_pNxPlayer = NULL;
+					break;
 				}
 				else
 				{
@@ -124,13 +129,17 @@ MainWindow::MainWindow(QWidget *parent)
 			}
 			else
 			{
+				m_bFindVideoFile = true;
 				break;
 			}
 		}
 
-		getAspectRatio(m_pNxPlayer->getVideoWidth(0), m_pNxPlayer->getVideoHeight(0),m_scrWidth, m_scrHeight, &dspWidth, &dspHeight);
-		ui->glVideoFrame->init(m_pNxPlayer->getVideoWidth(0), m_pNxPlayer->getVideoHeight(0),dspWidth, dspHeight);
-		m_curFileListIdx = m_fileIndex;
+		if(m_pNxPlayer)
+		{
+			getAspectRatio(m_pNxPlayer->getVideoWidth(0), m_pNxPlayer->getVideoHeight(0),m_scrWidth, m_scrHeight, &dspWidth, &dspHeight);
+			ui->glVideoFrame->init(m_pNxPlayer->getVideoWidth(0), m_pNxPlayer->getVideoHeight(0),dspWidth, dspHeight);
+			m_curFileListIdx = m_fileIndex;
+		}
 	}
 
 	//Init Volume
@@ -148,7 +157,7 @@ MainWindow::MainWindow(QWidget *parent)
 		m_duration = m_pNxPlayer->duration();
 	}
 
-    if(  m_fileList.GetSize() == 0)
+	if( (m_fileList.GetSize() == 0) || (false == m_bFindVideoFile) )
     {
         m_duration = 100 * 1000;    //dummy
     }
@@ -164,7 +173,7 @@ MainWindow::MainWindow(QWidget *parent)
 	pMainWindow = this;
 
 	// Subtitle
-	if(  m_fileList.GetSize() > 0)
+	if( (m_fileList.GetSize() > 0) && (true == m_bFindVideoFile) )
 	{
 		m_pSubtitleParser = new NX_CSubtitleParser();
 		ui->subTitleLabel->setStyleSheet("QLabel { color : white; }");
@@ -179,8 +188,6 @@ MainWindow::~MainWindow()
 {
 	if(m_pNxPlayer)
 	{
-		m_pNxPlayer->stop();
-		m_pNxPlayer->close();
 		delete m_pNxPlayer;
 		m_pNxPlayer = NULL;
 	}
@@ -609,6 +616,9 @@ void MainWindow::displayTouchEvent()
 
 void MainWindow::on_closeButton_released()
 {
+	stopVideo();
+	subTitleStop();
+
 	this->close();
 }
 

@@ -37,6 +37,11 @@ QtGLVideoWindow::QtGLVideoWindow(QWidget *parent) : QOpenGLWidget(parent),
 
 QtGLVideoWindow::~QtGLVideoWindow()
 {
+	if( NULL != m_hOutRGBSurf )
+	{
+		nxGSurfaceDisconnectCvt2RgbaTargetToTexture(m_hOutRGBSurf);
+		m_hOutRGBSurf = NULL;
+	}
 	nxGSurfaceDestroy();
 
 	if( m_hMemDefault )
@@ -91,8 +96,7 @@ void QtGLVideoWindow::initializeGL()
 	nxGSurfaceCreate(eglGetCurrentDisplay(), m_hMemDefault);
 	nxGSurfaceSetCurrentCvt2RgbaTargetToTexture();
 
-	glClearColor(0, 0, 0, 1);
-	//    glClearColor(0, 1.0, 0, 1);
+	glClearColor(0.f, 0.f, 0.f, 1.f);
 
 	initShaders();
 	initTextures();
@@ -128,7 +132,7 @@ void QtGLVideoWindow::paintGL()
 		}
 		m_hInYUVMem = NULL;
 
-		glClearColor(0, 0, 0, 1);
+		glClearColor(0.f, 0.f, 0.f, 1.f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		m_bClearSurface = false;

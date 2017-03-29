@@ -86,7 +86,8 @@ private:
 	QTimer          *m_pTimer;
 //	int             m_dspStatus;
 	int             m_DspMode;
-    //	Progress Bar
+	bool			m_bFindVideoFile;
+	//	Progress Bar
 	bool	m_bSeekReady;
 	bool    m_bVoumeCtrlReady;
 	bool    m_bButtonHide;
