@@ -1,5 +1,5 @@
-#ifndef NX_CUTIL_H
-#define NX_CUTIL_H
+#ifndef CNX_Util_H
+#define CNX_Util_H
 
 #include <stdio.h>
 #include <string.h>
@@ -16,6 +16,27 @@
 //
 //	NX_CMutex
 //
+class CNX_AutoLock {
+public:
+    CNX_AutoLock( pthread_mutex_t *pLock )
+        : m_pLock(pLock)
+    {
+        pthread_mutex_lock( m_pLock );
+    }
+    ~CNX_AutoLock()
+    {
+        pthread_mutex_unlock( m_pLock );
+    }
+
+protected:
+    pthread_mutex_t *m_pLock;
+
+private:
+    CNX_AutoLock (const CNX_AutoLock &Ref);
+    CNX_AutoLock &operator=(CNX_AutoLock &Ref);
+};
+
+
 class NX_CMutex
 {
 public:
@@ -32,20 +53,20 @@ public:
 public:
     void Lock()
     {
-		pthread_mutex_lock( &m_hMutex );
-	}
+        pthread_mutex_lock( &m_hMutex );
+    }
 
-	void Unlock()
-	{
-		pthread_mutex_unlock( &m_hMutex );
-	}
-
-private:
-	pthread_mutex_t		m_hMutex;
+    void Unlock()
+    {
+        pthread_mutex_unlock( &m_hMutex );
+    }
 
 private:
-	NX_CMutex (const NX_CMutex &Ref);
-	NX_CMutex &operator=(const NX_CMutex &Ref);
+    pthread_mutex_t		m_hMutex;
+
+private:
+    NX_CMutex (const NX_CMutex &Ref);
+    NX_CMutex &operator=(const NX_CMutex &Ref);
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -70,21 +91,21 @@ int VDecSemSignal( NX_VDEC_SEMAPHORE *pSem );
 class NX_CSemaphore{
 public:
     NX_CSemaphore()
-    : m_iValue	( 1 )
-    , m_iMax	( 1 )
-    , m_iInit	( 1 )
-    , m_bReset	( false )
-    , m_iTot    ( 0 )
+        : m_iValue	( 1 )
+        , m_iMax	( 1 )
+        , m_iInit	( 1 )
+        , m_bReset	( false )
+        , m_iTot    ( 0 )
     {
         pthread_cond_init ( &m_hCond,  NULL );
         pthread_mutex_init( &m_hMutex, NULL );
     }
 
     NX_CSemaphore( int32_t iMax, int32_t iInit )
-    : m_iValue	( iInit )
-    , m_iMax	( iMax )
-    , m_iInit	( iInit )
-    , m_bReset	( false )
+        : m_iValue	( iInit )
+        , m_iMax	( iMax )
+        , m_iInit	( iInit )
+        , m_bReset	( false )
     {
         pthread_cond_init ( &m_hCond,  NULL );
         pthread_mutex_init( &m_hMutex, NULL );
@@ -113,13 +134,30 @@ public:
         int32_t iRet = 0;
         pthread_mutex_lock( &m_hMutex );
 
-    m_iValue --;
+        m_iValue --;
 
-    if( m_iValue == 0 )
-    {
-        pthread_cond_wait( &m_hCond, &m_hMutex );
-    }
+        if( m_iValue == 0 )
+        {
+            int ret = gettimeofday(&m_CurTime,NULL);
+            if(0 > ret) printf("gettimeofday err\n");
 
+            m_Timeout.tv_sec = m_CurTime.tv_sec +1;
+            m_Timeout.tv_nsec = m_CurTime.tv_usec * 1000;
+
+            int iResult = pthread_cond_timedwait(&m_hCond,&m_hMutex,&m_Timeout);
+
+            switch (iResult) {
+            case 0:
+                //printf("signal ok\n");
+                break;
+            case ETIMEDOUT:
+                printf("\n\n***************signal not ok,, calling this->update(); for paintGL is not worked!!\n\n");
+                break;
+            default:
+                printf("pthread cond timedwait err\n");
+                break;
+            }
+        }
         pthread_mutex_unlock( &m_hMutex );
         return iRet;
     }
@@ -165,6 +203,8 @@ private:
     int32_t			m_bReset;
     int32_t			m_iTot;
 
+    struct timeval m_CurTime;
+    struct timespec m_Timeout;
 private:
     NX_CSemaphore (const NX_CSemaphore &Ref);
     NX_CSemaphore &operator=(const NX_CSemaphore &Ref);
@@ -178,28 +218,28 @@ private:
 class NX_GetTickCount
 {
 public:
-	NX_GetTickCount()
-	{
-	}
+    NX_GetTickCount()
+    {
+    }
 
-	~NX_GetTickCount()
-	{
-	}
+    ~NX_GetTickCount()
+    {
+    }
 
 public:
-	int64_t GetTime()   //ms
-	{
-		int64_t Ret;
-		struct timeval	tv;
-		struct timezone	zv;
-		gettimeofday( &tv, &zv );
-		Ret = ((int64_t)tv.tv_sec)*1000 + (int64_t)(tv.tv_usec/1000);
-		return Ret;
-	}
+    int64_t GetTime()   //ms
+    {
+        int64_t Ret;
+        struct timeval	tv;
+        struct timezone	zv;
+        gettimeofday( &tv, &zv );
+        Ret = ((int64_t)tv.tv_sec)*1000 + (int64_t)(tv.tv_usec/1000);
+        return Ret;
+    }
 
 private:
-	NX_GetTickCount (const NX_GetTickCount &Ref);
-	NX_GetTickCount &operator=(const NX_GetTickCount &Ref);
+    NX_GetTickCount (const NX_GetTickCount &Ref);
+    NX_GetTickCount &operator=(const NX_GetTickCount &Ref);
 };
 
-#endif // NX_CUTIL_H
+#endif // CNX_Util_H

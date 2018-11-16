@@ -41,7 +41,17 @@ enum {
 	MP_MSG_DEMUX_ERR						= 0x8000,
 	MP_MSG_VIDEO_DECODER_ERR,
 	MP_MSG_AUDIO_DECODER_ERR,
+	MP_MSG_ERR_OPEN_AUDIO_DEVICE,
 };
+
+enum
+{
+	MP_STOP_STATE	= 0,
+	MP_PLAY_STATE	= 1,
+	MP_PAUSE_STATE	= 2,
+	MP_READY_STATE	= 3,
+};
+
 
 
 //Error Code
@@ -114,6 +124,14 @@ typedef struct MP_DSP_CONFIG {
 	MP_DSP_RECT		dstRect;	// Destination Position Region
 } MP_DSP_CONFIG;
 
+
+typedef struct MP_DRM_PLANE_INFO {
+	int32_t		iConnectorID;		//  Dsp Connector ID
+	int32_t		iPlaneId;			//  DRM Plane ID
+	int32_t		iCrtcId;			//  DRM CRTC ID
+} MP_DRM_PLANE_INFO;
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -131,8 +149,8 @@ MP_RESULT	NX_MPGetMediaInfo( MP_HANDLE hMp, MP_MEDIA_INFO *pInfo );
 #ifdef ANDROID
 MP_RESULT	NX_MPAddTrack( MP_HANDLE hMp, int32_t iTrack, ANativeWindow *pWindow, MP_DSP_CONFIG *pInfo );
 #else
-MP_RESULT	NX_MPAddTrack( MP_HANDLE hMp, int32_t iTrack, MP_DSP_CONFIG *pInfo, int32_t bHdmiAudio = false );
-MP_RESULT	NX_MPAddTrack1( MP_HANDLE hMp, int32_t iTrack, MP_DSP_CONFIG *pInfo, const char *pDeviceName );
+MP_RESULT	NX_MPAddVideoTrack( MP_HANDLE hMp, int32_t iTrack, MP_DSP_CONFIG *pInfo, int32_t bHdmiAudio = false );
+MP_RESULT	NX_MPAddAudioTrack( MP_HANDLE hMp, int32_t iTrack, MP_DSP_CONFIG *pInfo, const char *pDeviceName );
 #endif
 MP_RESULT	NX_MPClearTrack( MP_HANDLE hMp );
 
@@ -172,7 +190,10 @@ MP_RESULT 	NX_MPSetVolume( MP_HANDLE hMp, int32_t iLevel );		// 0% ~ 100%
 int32_t 	NX_MPMakeThumbnail( const char *pInFile, const char *pOutFile, int32_t maxWidth, int32_t maxHeight, int32_t timeRatio );
 
 int32_t		NX_MPGetVersion( void );				// MSB|  Major( 8bit ) - Minor( 8bit ) - Revision( 8bit ) - Reserved( 8bit )  |LSB
-void		NX_MPChgDebugLevel( int32_t iLevel );	// 0(Verbose), 1(Debug), 2(Info), 3(Warn), 4(Error), 5(Disable) :: Default(Error)
+int32_t		NX_GetState( MP_HANDLE hMp );
+
+void		NX_MPVideoMute( MP_HANDLE hMp, int32_t bOnoff, MP_DSP_CONFIG *pInfo);
+int32_t 	NX_MPGetPlaneForDisplay( int crtcIdx, int layerIdx, int32_t findRgb, MP_DRM_PLANE_INFO *pDrmPlaneInfo );
 
 #ifdef __cplusplus
 }

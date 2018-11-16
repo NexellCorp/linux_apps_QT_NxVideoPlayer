@@ -16,32 +16,29 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 TARGET = NxVideoPlayer
 TEMPLATE = app
 
-# Add Graphic Tool Library
-LIBS += -L${SDKTARGETSYSROOT}/usr/lib/ -lMali  -lnxvidtex -lnx_drm_allocator -lnx_video_api 
-LIBS += -L../libnxplayer/lib/32bit -lnxmpmanager -lnxfilterhelper -lnxfilter -lnxsubtitle
+# Add Playler Tool Library
+LIBS += -L${SDKTARGETSYSROOT}/usr/lib/ -lnx_drm_allocator -lnx_video_api
+LIBS += -L$$PWD/../libnxplayer/lib/32bit -lnxmpmanager -lnxfilterhelper -lnxfilter
 
-INCLUDEPATH += ./vr_tools/include ${SDKTARGETSYSROOT}/usr/include/ ../libnxplayer/include
+# Add icu libraries
+LIBS += -licuuc -licui18n
+
+
+INCLUDEPATH += ${SDKTARGETSYSROOT}/usr/include/ ../libnxplayer/include
 
 SOURCES += main.cpp\
         mainwindow.cpp \
-        qtglvideowindow.cpp \
-        geometryengine.cpp \
-        NX_CMediaPlayer.cpp \
+        CNX_MoviePlayer.cpp \
         NX_CFileList.cpp \
         playlistwindow.cpp \
-        NX_CSubtitleParser.cpp
+        CNX_SubtitleParser.cpp
 
 HEADERS  += mainwindow.h \
-        qtglvideowindow.h \
-        geometryengine.h \
-        NX_CMediaPlayer.h \
+        CNX_MoviePlayer.h \
         NX_CFileList.h \
-        NX_CUtil.h \
+        CNX_Util.h \
         playlistwindow.h \
-        NX_CSubtitleParser.h
+        CNX_SubtitleParser.h \
 
 FORMS    += mainwindow.ui \
             playlistwindow.ui
-
-RESOURCES += \
-    shader.qrc
