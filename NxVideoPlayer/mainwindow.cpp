@@ -1,7 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
-#include "qtglvideowindow.h"
+#include <QTextCodec>
 
 static const char *NX_VIDEO_EXTENSION[] = {
 	".mp4",  ".avi",  ".mkv",
@@ -33,20 +33,12 @@ static const char *NX_VIDEO_EXTENSION[] = {
 //	Event Callback
 //
 static    CallBackSignal mediaStateCb;
-static    MainWindow *pMainWindow = NULL;
 
 //CallBack Eos, Error
 static void cbEventCallback( void */*privateDesc*/, unsigned int EventType, unsigned int /*EventData*/, unsigned int /*param*/ )
 {
 	mediaStateCb.statusChanged(EventType);
 }
-
-//CallBack Qt
-static void cbUpdateRender( void *pImg )
-{
-	pMainWindow->ImageUpdate(pImg);
-}
-
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -57,7 +49,6 @@ MainWindow::MainWindow(QWidget *parent)
 	, m_volValue    (30)
 	, m_fileIndex   (0)
 	, m_pNxPlayer   (NULL)
-//    , m_dspStatus   (DSP_FULL)
 	, m_DspMode     (DSP_MODE_DEFAULT)
 	, m_bFindVideoFile (false)
 	, m_bSeekReady  (false)
@@ -72,8 +63,6 @@ MainWindow::MainWindow(QWidget *parent)
 	, ui(new Ui::MainWindow)
 {
 	int ret = 0;
-	int dspWidth = 0;
-	int dspHeight = 0;
 
 	ui->setupUi(this);
 
@@ -82,13 +71,13 @@ MainWindow::MainWindow(QWidget *parent)
 
 	qDebug("<<< Total file list = %d\n", m_fileList.GetSize());
 
-	//	Connect Solt Functions
+    //	Connect Solt Functions
 	connect(&mediaStateCb, SIGNAL(mediaStatusChanged(int)), SLOT(statusChanged(int)));
 
 	// Initialize Player
 	if(  m_fileList.GetSize() > 0)
 	{
-		m_pNxPlayer = new NX_CMediaPlayer();
+        m_pNxPlayer = new CNX_MoviePlayer();
 		m_DspMode = DSP_MODE_DEFAULT;
 #if 0
 		m_DspMode = DSP_MODE_LCD_HDMI;
@@ -104,13 +93,20 @@ MainWindow::MainWindow(QWidget *parent)
 		}
 #endif
 
-		while(true)
+        while(true)
 		{
-			ret = m_pNxPlayer->setMedia(m_fileList.GetList(m_fileIndex), &cbEventCallback, &cbUpdateRender);
+            QString Uri = m_fileList.GetList(m_fileIndex);
+            ret = m_pNxPlayer->InitMediaPlayer( cbEventCallback,
+                                                NULL,
+                                                Uri.toStdString().c_str(),
+                                                MP_TRACK_VIDEO,
+                                                NULL
+                                               );
+
 			if(ret < 0)
 			{
-				m_pNxPlayer->stop();
-				m_pNxPlayer->close();
+                m_pNxPlayer->Stop();
+                m_pNxPlayer->CloseHandle();
 
 				if( (m_fileList.GetSize()-1 == m_fileIndex) || ( 1 == m_fileList.GetSize() ) )
 				{
@@ -130,14 +126,16 @@ MainWindow::MainWindow(QWidget *parent)
 			else
 			{
 				m_bFindVideoFile = true;
+                if( 0 == OpenSubTitle() )
+                {
+                    PlaySubTitle();
+                }
 				break;
 			}
 		}
 
 		if(m_pNxPlayer)
 		{
-			getAspectRatio(m_pNxPlayer->getVideoWidth(0), m_pNxPlayer->getVideoHeight(0),m_scrWidth, m_scrHeight, &dspWidth, &dspHeight);
-			ui->glVideoFrame->init(m_pNxPlayer->getVideoWidth(0), m_pNxPlayer->getVideoHeight(0),dspWidth, dspHeight);
 			m_curFileListIdx = m_fileIndex;
 		}
 	}
@@ -147,14 +145,14 @@ MainWindow::MainWindow(QWidget *parent)
 	ui->volumelabel->setText(QString("%1").arg(m_volValue));
 	if(m_pNxPlayer)
 	{
-		m_pNxPlayer->setVolume(m_volValue);
+        m_pNxPlayer->SetVolume(m_volValue);
 	}
 
 	ui->appNameLabel->setStyleSheet("QLabel { color : white; }");
 
 	if(m_pNxPlayer)
 	{
-		m_duration = m_pNxPlayer->duration();
+        m_duration = m_pNxPlayer->GetMediaDuration();
 	}
 
 	if( (m_fileList.GetSize() == 0) || (false == m_bFindVideoFile) )
@@ -165,29 +163,23 @@ MainWindow::MainWindow(QWidget *parent)
 	m_pTimer = new QTimer();
 	//Update position timer
 	connect(m_pTimer, SIGNAL(timeout()), this, SLOT(positionChanged()));
+    //Update Subtitle
+    connect(m_pTimer, SIGNAL(timeout()), this, SLOT(subTitleDisplayUpdate()));
 	m_pTimer->start(300);
 
-	ui->glVideoFrame->setMainWindow(this);
 	setAttribute(Qt::WA_AcceptTouchEvents, true);
-
-	pMainWindow = this;
-
-	// Subtitle
-	if( (m_fileList.GetSize() > 0) && (true == m_bFindVideoFile) )
-	{
-		m_pSubtitleParser = new NX_CSubtitleParser();
-		ui->subTitleLabel->setStyleSheet("QLabel { color : white; }");
-		if( 0 == subTitleOpen() )
-		{
-			subTitlePlay();
-		}
-	}
 }
 
 MainWindow::~MainWindow()
 {
 	if(m_pNxPlayer)
 	{
+        NX_MediaStatus state = m_pNxPlayer->GetState();
+        if( (PlayingState == state)||(PausedState == state) )
+        {
+            stopVideo();
+        }
+
 		delete m_pNxPlayer;
 		m_pNxPlayer = NULL;
 	}
@@ -226,13 +218,11 @@ void MainWindow::updateProgressBar(QMouseEvent *event, bool bReleased)
 			//	 Do Seek
 			if( m_bSeekReady )
 			{
-				if( StoppedState !=m_pNxPlayer->state() )
-				{
+                if( (StoppedState !=m_pNxPlayer->GetState()) && (ReadyState !=m_pNxPlayer->GetState()) )
+                {
 					double ratio = (double)(x-minX)/(double)width;
-					qint64 position = ratio * m_pNxPlayer->duration();
-					ui->glVideoFrame->setSeekStatus(true);
-					m_pNxPlayer->setPosition( position );
-					ui->glVideoFrame->setSeekStatus(false);
+                    qint64 position = ratio * m_pNxPlayer->GetMediaDuration();
+                    m_pNxPlayer->Seek( position );
 					qDebug("Position = %lld", position);
 				}
 				qDebug("Do Seek !!!");
@@ -275,14 +265,14 @@ void MainWindow::updateVolumeBar(QMouseEvent *event, bool bReleased)
 			//	 Change Volume
 			if( m_bVoumeCtrlReady )
 			{
-				if( StoppedState !=m_pNxPlayer->state() )
+                if( StoppedState !=m_pNxPlayer->GetState() )
 				{
 					double ratio = (double)(maxY-y)/(double)height;
 					qint64 position = ratio * VOLUME_MAX;
 					m_volValue = position;
 					ui->volumeProgressBar->setValue(m_volValue);
 					ui->volumelabel->setText(QString("%1").arg(m_volValue));
-					m_pNxPlayer->setVolume(m_volValue);
+                    m_pNxPlayer->SetVolume(m_volValue);
 					qDebug("Volume Value = %lld", position);
 				}
 				qDebug("Change Volume !!!");
@@ -296,7 +286,7 @@ void MainWindow::updateVolumeBar(QMouseEvent *event, bool bReleased)
 		{
 			m_bVoumeCtrlReady = true;
 			qDebug("Ready to Volume Control\n");
-		}
+        }
 		else
 		{
 			m_bVoumeCtrlReady = false;
@@ -316,6 +306,7 @@ void MainWindow::mouseReleaseEvent(QMouseEvent *event)
 {
 	updateProgressBar(event, true);
 	updateVolumeBar(event, true);
+//    displayTouchEvent();
 }
 
 void MainWindow::on_prevButton_released()
@@ -333,12 +324,7 @@ void MainWindow::on_prevButton_released()
 			m_curFileListIdx = m_fileIndex;
 		}
 		stopVideo();
-		subTitleStop();
-
 		playVideo();
-
-		if( 0 == subTitleOpen() )
-			subTitlePlay();
 	}
 }
 
@@ -346,13 +332,7 @@ void MainWindow::on_playButton_released()
 {
 	if(m_pNxPlayer)
 	{
-		int prevState = m_pNxPlayer->state();
 		playVideo();
-		if(StoppedState == prevState)
-		{
-			if( 0 == subTitleOpen() )
-				subTitlePlay();
-		}
 	}
 }
 
@@ -360,7 +340,7 @@ void MainWindow::on_pauseButton_released()
 {
 	if(m_pNxPlayer)
 	{
-		m_pNxPlayer->pause();
+        m_pNxPlayer->Pause();
 	}
 }
 
@@ -379,12 +359,7 @@ void MainWindow::on_nextButton_released()
 			m_curFileListIdx = m_fileIndex;
 		}
 		stopVideo();
-		subTitleStop();
-
 		playVideo();
-
-		if( 0 == subTitleOpen() )
-			subTitlePlay();
 	}
 }
 
@@ -395,7 +370,6 @@ void MainWindow::on_stopButton_released()
 		stopVideo();
 		m_savePosition = 0;
 	}
-	subTitleStop();
 }
 
 void MainWindow::durationChanged(qint64 duration)
@@ -409,9 +383,9 @@ void MainWindow::durationChanged(qint64 duration)
 
 void MainWindow::positionChanged()
 {
-	if( (m_pNxPlayer) && (StoppedState != m_pNxPlayer->state()))
+    if( (m_pNxPlayer) && (StoppedState != m_pNxPlayer->GetState()))
 	{
-		qint64 position = m_pNxPlayer->position();
+        qint64 position = m_pNxPlayer->GetMediaPosition();
 		//	Prgoress Bar
 		ui->progressBar->setValue(position / 1000);
 		updateDurationInfo(position / 1000);
@@ -464,11 +438,7 @@ void MainWindow::statusChanged(int eventType)
 				}
 			}
 			stopVideo();
-			subTitleStop();
-
 			playVideo();
-			if( 0 == subTitleOpen() )
-				subTitlePlay();
 
 			break;
 		}
@@ -492,12 +462,7 @@ void MainWindow::statusChanged(int eventType)
 				}
 			}
 			stopVideo();
-			subTitleStop();
-
 			playVideo();
-			if( 0 == subTitleOpen() )
-				subTitlePlay();
-
 			break;
 		}
 	}
@@ -508,16 +473,14 @@ void MainWindow::stopVideo()
 	if( NULL == m_pNxPlayer)
 		return;
 
-	ui->glVideoFrame->deInit();
-	m_pNxPlayer->stop();
-	m_pNxPlayer->close();
+    m_pNxPlayer->Stop();
+    StopSubTitle();
+    m_pNxPlayer->CloseHandle();
 }
 
 void MainWindow::playVideo()
 {
 	int ret = 0;
-	int dspWidth = 0;
-	int dspHeight = 0;
 
 	if( NULL == m_pNxPlayer)
 		return;
@@ -525,20 +488,26 @@ void MainWindow::playVideo()
 	if( 0 == m_fileList.GetSize())
 		return;
 
-	if( (PausedState == m_pNxPlayer->state()) || (ReadyState == m_pNxPlayer->state()))
+    if( (PausedState == m_pNxPlayer->GetState()) || (ReadyState == m_pNxPlayer->GetState()))
 	{
-		m_pNxPlayer->play();
+        m_pNxPlayer->Play();
 		return;
 	}
-	else if(StoppedState == m_pNxPlayer->state())
+    else if(StoppedState == m_pNxPlayer->GetState())
 	{
 		while(true)
 		{
-			ret = m_pNxPlayer->setMedia(m_fileList.GetList(m_fileIndex), &cbEventCallback, &cbUpdateRender);
+            QString Uri = m_fileList.GetList(m_fileIndex);
+            ret = m_pNxPlayer->InitMediaPlayer( cbEventCallback,
+                                                NULL,
+                                                Uri.toStdString().c_str(),
+                                                MP_TRACK_VIDEO,
+                                                NULL
+                                               );
 			if(ret < 0)
 			{
-				m_pNxPlayer->stop();
-				m_pNxPlayer->close();
+                m_pNxPlayer->Stop();
+                m_pNxPlayer->CloseHandle();
 
 				if( (m_fileList.GetSize()-1 == m_fileIndex) || ( 1 == m_fileList.GetSize() ) )
 				{
@@ -553,32 +522,25 @@ void MainWindow::playVideo()
 			}
 			else
 			{
+                if( 0 == OpenSubTitle() )
+                {
+                    PlaySubTitle();
+                }
 				break;
 			}
 		}
 	}
 
-	getAspectRatio(m_pNxPlayer->getVideoWidth(0), m_pNxPlayer->getVideoHeight(0),m_scrWidth, m_scrHeight, &dspWidth, &dspHeight);
-	ui->glVideoFrame->init(m_pNxPlayer->getVideoWidth(0), m_pNxPlayer->getVideoHeight(0),dspWidth, dspHeight);
-
-	m_duration = m_pNxPlayer->duration();
+    m_duration = m_pNxPlayer->GetMediaDuration();
 	durationChanged(m_duration);
-	m_pNxPlayer->play();
+    m_pNxPlayer->Play();
 	ui->appNameLabel->setText(m_fileList.GetFileName(m_curFileListIdx));
-	m_pNxPlayer->setVolume(m_volValue);
-}
-
-void MainWindow::ImageUpdate(void *pImg)
-{
-	if (pImg)
-	{
-		ui->glVideoFrame->inputMapping(pImg);
-	}
+    m_pNxPlayer->SetVolume(m_volValue);
 }
 
 void MainWindow::displayTouchEvent()
 {
-	if(false == m_bButtonHide)
+    if(false == m_bButtonHide)
 	{
 		m_bButtonHide = true;
 		ui->progressBar->hide();
@@ -617,8 +579,6 @@ void MainWindow::displayTouchEvent()
 void MainWindow::on_closeButton_released()
 {
 	stopVideo();
-	subTitleStop();
-
 	this->close();
 }
 
@@ -626,6 +586,7 @@ void MainWindow::on_closeButton_released()
 //
 //		Play Util
 //
+
 void MainWindow::getAspectRatio(int srcWidth, int srcHeight,
                                 int scrWidth, int scrHeight,
                                 int *pWidth,  int *pHeight)
@@ -683,54 +644,110 @@ void MainWindow::on_playListButton_released()
 
 void MainWindow::subTitleDisplayUpdate()
 {
-	if(m_bSubThreadFlag)
-	{
-		if( (m_pNxPlayer) && (StoppedState != m_pNxPlayer->state()))
-		{
-			qint64 curPos = m_pNxPlayer->position();
-			char *pBuf = m_pSubtitleParser->Parse(curPos);
-			QString strTemp(pBuf);
-			ui->subTitleLabel->setText(strTemp);
-		}
-	}
+    if(m_bSubThreadFlag)
+    {
+        if( (m_pNxPlayer) && (StoppedState != m_pNxPlayer->GetState()))
+        {
+            QString encResult;
+            int idx;
+            qint64 curPos = m_pNxPlayer->GetMediaPosition();
+            for( idx = m_pNxPlayer->GetSubtitleIndex() ; idx <= m_pNxPlayer->GetSubtitleMaxIndex() ; idx++ )
+            {
+                if(m_pNxPlayer->GetSubtitleStartTime() < curPos)
+                {
+                    char *pBuf = m_pNxPlayer->GetSubtitleText();
+                    encResult = m_pCodec->toUnicode(pBuf);
+
+                    //HTML
+                    //encResult = QString("%1").arg(m_pCodec->toUnicode(pBuf));	//&nbsp; not detected
+                    //encResult.replace( QString("<br>"), QString("\n")  );		//detected
+                    encResult.replace( QString("&nbsp;"), QString(" ")  );
+                    if(m_bButtonHide == false)
+                    {
+                        ui->subTitleLabel->setText(encResult);
+                    }
+                    else
+                    {
+                        ui->subTitleLabel->setText("");
+                    }
+                }else
+                {
+                    break;
+                }
+                m_pNxPlayer->IncreaseSubtitleIndex();
+            }
+        }
+    }
 }
 
-int MainWindow::subTitleOpen()
-{
-	if( 0 > m_pSubtitleParser->Open( m_fileList.GetList(m_fileIndex) ) )
-	{
-		return -1;
-	}
 
-	return 0;
+int MainWindow::OpenSubTitle()
+{
+    QString path;
+    path = m_fileList.GetList(m_fileIndex);
+    int lastIndex = path.lastIndexOf(".");
+    char tmpStr[1024]={0};
+    if((lastIndex == 0))
+    {
+        return -1;  //this case means there is no file that has an extension..
+    }
+    strncpy(tmpStr, (const char*)path.toStdString().c_str(), lastIndex);
+    QString pathPrefix(tmpStr);
+    QString subtitlePath;
+
+    subtitlePath = pathPrefix + ".smi";
+
+    //call library method
+    int openResult = m_pNxPlayer->OpenSubtitle( (char *)subtitlePath.toStdString().c_str() );
+
+    if ( 1 == openResult )
+    {
+        // case of open succeed
+        m_pCodec = QTextCodec::codecForName(m_pNxPlayer->GetBestSubtitleEncode());
+
+        if (NULL == m_pCodec)
+            m_pCodec = QTextCodec::codecForName("EUC-KR");
+        return 0;
+    }else if( -1 == openResult )
+    {
+        //smi open tried but failed while fopen (maybe smi file does not exist)
+        //should try opening srt
+        subtitlePath = pathPrefix + ".srt";
+        if( 1 == m_pNxPlayer->OpenSubtitle( (char *)subtitlePath.toStdString().c_str() ) )
+        {
+            m_pCodec = QTextCodec::codecForName(m_pNxPlayer->GetBestSubtitleEncode());
+            if (NULL == m_pCodec)
+                m_pCodec = QTextCodec::codecForName("EUC-KR");
+            return 0;
+        }else
+        {
+            //smi and srt both cases are tried, but open failed
+            return -1;
+        }
+    }else
+    {
+        qDebug("parser lib OpenResult : %d\n",openResult);
+        //other err cases
+        //should check later....
+        return -1;
+    }
+
+    return -1;
 }
 
-int MainWindow::subTitlePlay()
+void MainWindow::PlaySubTitle()
 {
-	if(m_pSubTitleTimer == NULL )
-	{
-		m_bSubThreadFlag = true;
-		m_pSubTitleTimer = new QTimer();
-		connect(m_pSubTitleTimer, SIGNAL(timeout()), this, SLOT(subTitleDisplayUpdate()));
-		m_pSubTitleTimer->start(300);
-	}
-	return 0;
+    m_bSubThreadFlag = true;
 }
 
-void MainWindow::subTitleStop()
+void MainWindow::StopSubTitle()
 {
-	if(m_pSubTitleTimer != NULL )
-	{
-		m_bSubThreadFlag = false;
-		m_pSubTitleTimer->stop();
-		delete m_pSubTitleTimer;
-		m_pSubTitleTimer = NULL;
-	}
+    if(m_bSubThreadFlag)
+    {
+        m_bSubThreadFlag = false;
+    }
 
-	if(m_pSubtitleParser)
-	{
-		m_pSubtitleParser->Close();
-	}
+    m_pNxPlayer->CloseSubtitle();
 
-	ui->subTitleLabel->setText("");
+    ui->subTitleLabel->setText("");
 }

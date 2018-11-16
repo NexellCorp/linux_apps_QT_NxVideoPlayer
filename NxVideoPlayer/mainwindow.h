@@ -10,10 +10,10 @@
 #include <QTouchEvent>
 
 #include "NX_CFileList.h"
-#include "NX_CMediaPlayer.h"
-#include "NX_CSubtitleParser.h"
+#include "CNX_MoviePlayer.h"
+#include "CNX_SubtitleParser.h"
 
-#include "NX_CUtil.h"
+#include "CNX_Util.h"
 #include "playlistwindow.h"
 
 
@@ -66,9 +66,10 @@ public:
 	//
 	//	SubTitle
 	//
-	int  subTitleOpen();
-	int  subTitlePlay();
-	void subTitleStop();
+    int OpenSubTitle();
+    void PlaySubTitle();
+    void StopSubTitle();
+
 
 	//
 	//	Play
@@ -81,10 +82,9 @@ private:
 	qint64 m_savePosition;
 	int    m_volValue;
 	int    m_fileIndex;
-	NX_CMediaPlayer *m_pNxPlayer;
+    CNX_MoviePlayer *m_pNxPlayer;
 	NX_CFileList    m_fileList;
 	QTimer          *m_pTimer;
-//	int             m_dspStatus;
 	int             m_DspMode;
 	bool			m_bFindVideoFile;
 	//	Progress Bar
@@ -96,9 +96,10 @@ private:
 	int     m_scrHeight;
 
 	// Subtitle
-	NX_CSubtitleParser  *m_pSubtitleParser;
+    CNX_SubtitleParser  *m_pSubtitleParser;
 	bool                m_bSubThreadFlag;
 	QTimer              *m_pSubTitleTimer;
+    QTextCodec*         m_pCodec;
 
 private:
 	void updateDurationInfo(qint64 currentInfo);
