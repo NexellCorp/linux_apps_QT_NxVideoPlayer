@@ -9,6 +9,12 @@
 #include <QDebug>
 #include <QTouchEvent>
 
+#include <QEvent>
+//Message
+#include <QFrame>
+#include <QLabel>
+#include <QPushButton>
+
 #include "NX_CFileList.h"
 #include "CNX_MoviePlayer.h"
 #include "CNX_SubtitleParser.h"
@@ -53,9 +59,6 @@ public:
 	//
 	//	Mouse Event
 	//
-	void mousePressEvent(QMouseEvent *event);
-	void mouseReleaseEvent(QMouseEvent *event);
-
 	void getAspectRatio(int srcWidth, int srcHeight,
 						int scrWidth, int scrHeight,
 						int *pWidth, int *pHeight);
@@ -66,9 +69,9 @@ public:
 	//
 	//	SubTitle
 	//
-    int OpenSubTitle();
-    void PlaySubTitle();
-    void StopSubTitle();
+	int OpenSubTitle();
+	void PlaySubTitle();
+	void StopSubTitle();
 
 
 	//
@@ -82,7 +85,7 @@ private:
 	qint64 m_savePosition;
 	int    m_volValue;
 	int    m_fileIndex;
-    CNX_MoviePlayer *m_pNxPlayer;
+	CNX_MoviePlayer *m_pNxPlayer;
 	NX_CFileList    m_fileList;
 	QTimer          *m_pTimer;
 	int             m_DspMode;
@@ -92,16 +95,26 @@ private:
 	bool    m_bVoumeCtrlReady;
 	bool    m_bButtonHide;
 	int     m_curFileListIdx;
-	int     m_scrWidth;
-	int     m_scrHeight;
 
 	// Subtitle
-    CNX_SubtitleParser  *m_pSubtitleParser;
+	CNX_SubtitleParser  *m_pSubtitleParser;
 	bool                m_bSubThreadFlag;
 	QTimer              *m_pSubTitleTimer;
-    QTextCodec*         m_pCodec;
+	QTextCodec*         m_pCodec;
+
+	// Video Speed
+	float m_fSpeed;
+	bool m_bNotSupportSpeed;
+
+	//Message
+	QFrame *m_pMessageFrame;
+	QLabel *m_pMessageLabel;
+	QPushButton *m_pMessageButton;
 
 private:
+	//	event filter
+	bool eventFilter(QObject *watched, QEvent *event);
+	void SetupUI();
 	void updateDurationInfo(qint64 currentInfo);
 	void durationChanged(qint64 duration);
 
@@ -124,6 +137,14 @@ private slots:
 	//	Playlist Button & Close Button
 	void on_closeButton_released();
 	void on_playListButton_released();
+
+	//Message
+	void slotOk();
+
+	void on_speedButton_released();
+
+protected:
+	void resizeEvent(QResizeEvent *event);
 
 private:
 	Ui::MainWindow *ui;
