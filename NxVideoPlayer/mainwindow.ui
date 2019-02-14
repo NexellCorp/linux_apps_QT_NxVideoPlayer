@@ -185,6 +185,9 @@ width: 20px;
       <pointsize>14</pointsize>
      </font>
     </property>
+    <property name="styleSheet">
+     <string notr="true">color: white;</string>
+    </property>
     <property name="text">
      <string>Vol</string>
     </property>
@@ -367,12 +370,25 @@ height: 20px;
     </property>
     <property name="maximumSize">
      <size>
-      <width>1024</width>
-      <height>600</height>
+      <width>16777215</width>
+      <height>16777215</height>
      </size>
     </property>
     <property name="styleSheet">
      <string notr="true">background: rgb(0, 0, 0);</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="speedButton">
+    <property name="geometry">
+     <rect>
+      <x>910</x>
+      <y>350</y>
+      <width>89</width>
+      <height>51</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>x 1</string>
     </property>
    </widget>
    <zorder>graphicsView</zorder>
@@ -389,6 +405,7 @@ height: 20px;
    <zorder>stopButton</zorder>
    <zorder>volumeProgressBar</zorder>
    <zorder>subTitleLabel</zorder>
+   <zorder>speedButton</zorder>
   </widget>
  </widget>
  <layoutdefault spacing="6" margin="11"/>

@@ -19,6 +19,7 @@ public:
 	~PlayListWindow();
 
 public:
+	void resizeEvent(QResizeEvent *event);
 	void setList(NX_CFileList *pFileList);
 	void setCurrentIndex(int idx);
 	int getCurrentIndex();
@@ -32,6 +33,8 @@ private slots:
 	void on_btnCancel_released();
 	void on_btnOk_released();
 	void on_listWidget_itemClicked(QListWidgetItem *item);
+
+	void SetupUI();
 
 private:
 	Ui::PlayListWindow *ui;
