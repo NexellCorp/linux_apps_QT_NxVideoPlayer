@@ -159,7 +159,7 @@ MP_RESULT	NX_MPClearTrack( MP_HANDLE hMp );
 //
 //	Control Function
 //
-MP_RESULT	NX_MPPlay( MP_HANDLE hMp, float fSpeed = 1. );
+MP_RESULT	NX_MPPlay( MP_HANDLE hMp );
 MP_RESULT	NX_MPStop( MP_HANDLE hMp );
 MP_RESULT	NX_MPPause( MP_HANDLE hMp );
 MP_RESULT	NX_MPSeek( MP_HANDLE hMp, int64_t iSeekTime );			// mSec ( alsolute time )
@@ -172,6 +172,15 @@ MP_RESULT	NX_MPSetDspCrop( MP_HANDLE hMp, int32_t iTrack, MP_DSP_RECT *pRect );
 MP_RESULT	NX_MPSetDspPosition( MP_HANDLE hMp, int32_t iTrack, MP_DSP_RECT *pRect );
 // MP_RESULT	NX_MPSetVideoLayerPriority( MP_HANDLE hMp, int32_t iTrack, int32_t iModule, int32_t iPriority );
 MP_RESULT	NX_MPSetRenderCallBack( MP_HANDLE hMp, int32_t iTrack, void (*cbQtUpdateImg)(void *pImg) );
+
+#ifndef ANDROID
+void	NX_MPVideoMute( MP_HANDLE hMp, int32_t bOnoff, MP_DSP_CONFIG *pInfo);
+//Video Speed
+MP_RESULT	NX_MPSetVideoSpeed( MP_HANDLE hMp, float Speed  ); //support file:avi,mkv,mp4
+MP_RESULT   NX_MPGetVideoSpeedSupport( MP_HANDLE hMp );		   // support file:avi,mkv,mp4 codec:h264,mpeg4
+//A/V Sync
+MP_RESULT	NX_MPSetAVSync( MP_HANDLE hMp, int64_t syncTimeMs ); //syncTime +,-, ms
+#endif
 
 //Dual Display
 // iDspMode ==> 0:Default, (1:Only LCD, 2:Only Hdmi, 3:Only Tvout, 4:LCD+HDMI, 5:LCD+TVOUT)==>Dual Display

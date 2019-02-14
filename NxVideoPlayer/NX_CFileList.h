@@ -66,7 +66,7 @@ public:
 		QMutexLocker lock(&m_ListLock);
 		m_FileList.clear();
 		m_FileNameList.clear();
-    }
+	}
 
 	int32_t GetSize()
 	{

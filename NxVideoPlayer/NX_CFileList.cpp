@@ -74,7 +74,7 @@ int NX_CFileList::GetDir (QString dir)
 	struct dirent *dirp;
 	if((dp  = opendir(dir.toStdString().c_str())) == NULL) {
 		return errno;
-    }
+	}
 
 	while ((dirp = readdir(dp)) != NULL)
 	{
